@@ -557,6 +557,32 @@ footer {
     transition: background 0.2s ease, transform 0.2s ease;
 
 }
+.menu-item.out-of-stock {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.menu-item.out-of-stock::after {
+  content: "OUT OF STOCK";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 18, 34, 0.58);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  pointer-events: none;
+}
+
+.menu-item.out-of-stock .add-to-cart:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .add-to-cart:hover {
 
@@ -1824,7 +1850,6 @@ footer {
 
     #cafe-name h1 {
         margin: 0;
-        font-size: inherit;
         line-height: inherit;
         font-weight: 700;
         white-space: nowrap;
