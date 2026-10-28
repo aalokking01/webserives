@@ -354,8 +354,13 @@ async function loadMenu() {
   }
 
   try {
-    const response = await fetch(SHEET_URL);
-
+    const response = await fetch(
+  SHEET_URL +
+    (SHEET_URL.includes("?") ? "&" : "?") +
+    "_t=" + Date.now(),
+  { cache: "no-store" }
+);
+//const response = await fetch(SHEET_URL);// ye jaruat padne pe upar wale code ko replae krke 
     if (!response.ok) {
       throw new Error("Could not load the menu sheet.");
     }
@@ -373,6 +378,11 @@ async function loadMenu() {
           ).trim(),
           name: String(item.name || "").trim(),
           price,
+
+          availability:
+  String(item.availability || 'Yes').trim().toLowerCase() === 'no'
+    ? 'No'
+    : 'Yes',
 
           validPrice:
             item.price.trim() !== "" &&
@@ -504,6 +514,11 @@ function renderMenu() {
 
   filtered.forEach(item => {
     const card = createElement("div", "menu-item");
+     const isOutOfStock = item.availability === 'No';
+
+if (isOutOfStock) {
+  card.classList.add('out-of-stock');
+}
 
     const name = createElement(
       "h3",
@@ -529,10 +544,16 @@ function renderMenu() {
     );
 
     addButton.type = "button";
+    if (isOutOfStock) {
+  addButton.disabled = true;
+  addButton.textContent = 'Out of Stock';
+  addButton.setAttribute('aria-label', item.name + ' is out of stock');
+}
 
     addButton.addEventListener("click", () => {
-      addToCart(item.id);
-    });
+  if (item.availability === 'No') return;
+  addToCart(item.id);
+});
 
     bottom.append(price, addButton);
     card.append(name, bottom);
