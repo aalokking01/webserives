@@ -1,1684 +1,2473 @@
-// =========================================================
-// CAFE CUSTOMER WEBSITE
-// Menu + Cart + Google Sheets + WhatsApp Orders + Mobile UI
-// =========================================================
+* {
 
-// IMPORTANT: Use the deployed Public Order API /exec URL.
-const PUBLIC_API_URL = "https://script.google.com/macros/s/AKfycbwNHW-tTYHHU-5VzeP79vHyi_drZ5YWCB-vUYsk9QBZ29OnH_ivxolo35V75xHzbdnXvg/exec";
+    box-sizing: border-box;
 
-const FALLBACK_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vS7YCQ9CGlKGS8y9UVUPW_8nRyqvGByCbjpGVim1VtJ7VUgsQItghADB4WZU3p9nmQwP_6Ofj6yRAf5/pub?gid=1147272507&single=true&output=csv";
+    padding: 0;
 
-let SHEET_URL = FALLBACK_SHEET_URL;
+    margin: 0;
 
-let PUBLIC_CONFIG = {
-  cafeName: "Your Cafe",
-  cafeLogoUrl: "",
-  cafeAddress: "",
-  cafePhone: "",
-  menuCsvUrl: "",
-  gstPercent: 5
-};
-
-let menuItems = [];
-let selectedCategory = "All";
-
-// Item ID => quantity
-const cart = new Map();
-
-const categoryContainer = document.getElementById("Mcatogery");
-const menuContainer = document.getElementById("Mitems");
-const searchInput = document.getElementById("searchitem");
-const cartContainer = document.getElementById("cart");
-const placeOrderButton = document.getElementById("placeorder");
-
-
-// =========================================================
-// PUBLIC CONFIGURATION
-// =========================================================
-
-function fetchPublicConfig() {
-  const apiUrl = String(PUBLIC_API_URL || "").trim();
-
-  if (!apiUrl || apiUrl.includes("PASTE_PUBLIC_ORDER_API_URL_HERE")) {
-    return Promise.reject(
-      new Error("Public order API URL has not been configured.")
-    );
-  }
-
-  return new Promise((resolve, reject) => {
-    const callbackName =
-      "cafeConfig_" +
-      Date.now() +
-      "_" +
-      Math.floor(Math.random() * 100000);
-
-    const script = document.createElement("script");
-    const separator = apiUrl.includes("?") ? "&" : "?";
-
-    let finished = false;
-    let timeoutId;
-
-    const cleanup = () => {
-      if (finished) return;
-
-      finished = true;
-      clearTimeout(timeoutId);
-      script.remove();
-
-      try {
-        delete window[callbackName];
-      } catch (_) {
-        window[callbackName] = undefined;
-      }
-    };
-
-    timeoutId = setTimeout(() => {
-      cleanup();
-      reject(new Error("Cafe settings request timed out."));
-    }, 12000);
-
-    window[callbackName] = (config) => {
-      cleanup();
-
-      if (!config || typeof config !== "object") {
-        reject(new Error("Invalid public cafe configuration."));
-        return;
-      }
-
-      resolve(config);
-    };
-
-    script.onerror = () => {
-      cleanup();
-
-      reject(
-        new Error(
-          "Could not load cafe settings. Check the public Order API URL."
-        )
-      );
-    };
-
-    script.src =
-      apiUrl +
-      separator +
-      "callback=" +
-      encodeURIComponent(callbackName);
-
-    document.head.appendChild(script);
-  });
 }
 
+html {
 
-function applyPublicCafeSettings(config) {
-  PUBLIC_CONFIG = {
-    ...PUBLIC_CONFIG,
-    ...(config || {})
-  };
+    scroll-behavior: smooth;
 
-  if (PUBLIC_CONFIG.menuCsvUrl) {
-    SHEET_URL = PUBLIC_CONFIG.menuCsvUrl;
-  }
-
-  const cafeName = String(
-    PUBLIC_CONFIG.cafeName || "Your Cafe"
-  ).trim();
-
-  const cafeNameHeading = document.querySelector("#cafe-name h1");
-  const footerCafeName = document.querySelector("#cafedet h1");
-
-  if (cafeNameHeading) {
-    cafeNameHeading.textContent = cafeName;
-  }
-
-  if (footerCafeName) {
-    footerCafeName.textContent = cafeName;
-  }
-
-  // =========================================
-// DYNAMIC PAGE TITLE + FAVICON
-// Uses cafe settings from the admin panel
-// =========================================
-
-// Browser tab title
-document.title = "Order Now || " + cafeName;
-
-// Cafe logo URL saved in Cafe Settings
-const faviconUrl = String(
-  PUBLIC_CONFIG.cafeLogoUrl || ""
-).trim();
-
-// Find existing favicon link in customer.html
-let favicon = document.querySelector(
-  'link[rel~="icon"]'
-);
-
-// Create favicon link if customer.html has none
-if (!favicon) {
-  favicon = document.createElement("link");
-  favicon.rel = "icon";
-  document.head.appendChild(favicon);
 }
 
-// Set cafe logo as browser tab icon
-if (faviconUrl) {
-  favicon.href = faviconUrl;
-  favicon.type = "";
-  favicon.removeAttribute("sizes");
+:root {
+
+    /* Main Backgrounds */
+
+    --bg: #17120F;
+
+    --bg-light: #FAF5ED;
+
+    --surface: #30241E;
+
+    --card-bg: #382A22;
+
+    /* Text Colors */
+
+    --text: #FAF5ED;
+
+    --text-muted: #C8B8A7;
+
+    --text-dark: #30231B;
+
+    /* Primary Accent Colors */
+
+    --primary: #B77B55;
+
+    --primary-hover: #CD9670;
+
+    --accent: #B77B55;
+
+    /* Border Colors */
+
+    --border: #4A382C;
+
+    --input-border: #5A4334;
+
+    /* Input Fields */
+
+    --input-bg: #211914;
+
+    --input-text: #FAF5ED;
+
+    --input-placeholder: #C8B8A7;
+
+    /* Buttons */
+
+    --button-bg: #B77B55;
+
+    --button-text: #1D130D;
+
+    --button-hover: #CD9670;
+
+    /* Status Colors */
+
+    --success: #72B58B;
+
+    --danger: #B93E3E;
+
+    --warning: #D9A441;
+
+    /* Shadows */
+
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+
+    /* Border Radius */
+
+    --radius-sm: 8px;
+
+    --radius-md: 14px;
+
+    --radius-lg: 20px;
+
 }
 
-  const addressText = document.querySelector("#add p");
+body {
 
-  if (addressText && PUBLIC_CONFIG.cafeAddress) {
-    addressText.textContent = PUBLIC_CONFIG.cafeAddress;
-  }
+    background-color: var(--bg);
 
-  const phoneText = document.querySelector("#phone p");
+    color: var(--text);
 
-  if (phoneText && PUBLIC_CONFIG.cafePhone) {
-    phoneText.textContent = PUBLIC_CONFIG.cafePhone;
-  }
-
-  // Update cafe logo if a logo URL is configured.
-  const logoContainer = document.getElementById("cafe-logo");
-  const logoUrl = String(
-    PUBLIC_CONFIG.cafeLogoUrl || ""
-  ).trim();
-
-  if (logoContainer && logoUrl) {
-    const image = document.createElement("img");
-
-    image.src = logoUrl;
-    image.alt = cafeName + " logo";
-    image.width = 32;
-    image.height = 32;
-
-    image.style.width = "2rem";
-    image.style.height = "2rem";
-    image.style.objectFit = "cover";
-    image.style.borderRadius = "50%";
-
-    image.onerror = () => {
-      image.remove();
-    };
-
-    logoContainer.replaceChildren(image);
-  }
-
-  // Update GST notice.
-  const gstPercent = Number(PUBLIC_CONFIG.gstPercent);
-  const gstNoteElement = document.getElementById("gst-note");
-
-  if (gstNoteElement && Number.isFinite(gstPercent)) {
-    gstNoteElement.textContent =
-      "GST " + gstPercent + "% applicable";
-  }
 }
 
+/* Navbar CSS */
 
-async function initialiseCustomerPage() {
-  try {
-    const config = await fetchPublicConfig();
-    applyPublicCafeSettings(config);
-  } catch (error) {
-    console.warn(
-      "Cafe public config unavailable; using fallback settings.",
-      error
-    );
-  }
+#cafedetails {
 
-  await loadMenu();
+    height: 10vh;
+
+    background-color: var(--bg);
+
+    color: var(--text);
+
+    border-bottom: 1px solid var(--border);
+
+    display: flex;
+
+    gap: 1rem;
+
+    align-items: center;
+
+    padding: 2rem;
+
+    justify-content: space-between;
+
 }
 
+#cafenamelogo {
 
-// =========================================================
-// CSV PARSER
-// =========================================================
+    display: flex;
 
-function parseCSV(csv) {
-  const rows = [];
-  let row = [];
-  let value = "";
-  let insideQuotes = false;
+    align-items: center;
 
-  for (let i = 0; i < csv.length; i++) {
-    const char = csv[i];
-    const next = csv[i + 1];
+    gap: .5rem;
 
-    if (char === '"' && insideQuotes && next === '"') {
-      value += '"';
-      i++;
-    } else if (char === '"') {
-      insideQuotes = !insideQuotes;
-    } else if (char === "," && !insideQuotes) {
-      row.push(value.trim());
-      value = "";
-    } else if (
-      (char === "\n" || char === "\r") &&
-      !insideQuotes
-    ) {
-      if (char === "\r" && next === "\n") {
-        i++;
-      }
-
-      row.push(value.trim());
-
-      if (row.some(cell => cell !== "")) {
-        rows.push(row);
-      }
-
-      row = [];
-      value = "";
-    } else {
-      value += char;
-    }
-  }
-
-  if (value !== "" || row.length > 0) {
-    row.push(value.trim());
-
-    if (row.some(cell => cell !== "")) {
-      rows.push(row);
-    }
-  }
-
-  if (rows.length < 2) {
-    return [];
-  }
-
-  const headers = rows[0].map(header =>
-    header.trim().toLowerCase()
-  );
-
-  return rows.slice(1).map(values => {
-    const item = {};
-
-    headers.forEach((header, index) => {
-      item[header] = values[index] ?? "";
-    });
-
-    return item;
-  });
 }
 
+#cafe-logo {
 
-// =========================================================
-// HELPER FUNCTIONS
-// =========================================================
+    font-size: 2rem;
 
-function formatPrice(price) {
-  return Number(price).toLocaleString("en-IN", {
-    maximumFractionDigits: 2
-  });
 }
 
+#cafe-name {
 
-function createElement(tag, className, text = "") {
-  const element = document.createElement(tag);
+    font-size: 1rem;
 
-  if (className) {
-    element.className = className;
-  }
+    font-weight: 600;
 
-  if (text !== "") {
-    element.textContent = text;
-  }
-
-  return element;
 }
 
+#address {
 
-// =========================================================
-// LOAD MENU FROM GOOGLE SHEETS
-// =========================================================
+    display: flex;
 
-async function loadMenu() {
-  const menuList = getMenuList();
+    justify-content: space-around;
 
-  menuList.replaceChildren(
-    createElement("p", "menu-message", "Loading menu...")
-  );
+    gap: 2rem;
 
-  if (!SHEET_URL) {
-    menuList.replaceChildren(
-      createElement(
-        "p",
-        "menu-message",
-        "Cafe menu is not configured yet. The owner must save the published Menu CSV URL in the cafe admin panel."
-      )
-    );
-
-    renderCategories();
-    renderCart();
-    return;
-  }
-
-  try {
-    const response = await fetch(
-  SHEET_URL +
-    (SHEET_URL.includes("?") ? "&" : "?") +
-    "_t=" + Date.now(),
-  { cache: "no-store" }
-);
-//const response = await fetch(SHEET_URL);// ye jaruat padne pe upar wale code ko replae krke 
-    if (!response.ok) {
-      throw new Error("Could not load the menu sheet.");
-    }
-
-    const csv = await response.text();
-
-    menuItems = parseCSV(csv)
-      .map((item, index) => {
-        const price = Number(item.price);
-
-        return {
-          id: String(item.id || index + 1).trim(),
-          category: String(
-            item.category || "Other"
-          ).trim(),
-          name: String(item.name || "").trim(),
-          foodtype: String(item.foodtype || '').trim(),
-          price,
-
-          availability:
-  String(item.availability || 'Yes').trim().toLowerCase() === 'no'
-    ? 'No'
-    : 'Yes',
-
-          validPrice:
-            item.price.trim() !== "" &&
-            Number.isFinite(price) &&
-            price >= 0
-        };
-      })
-      .filter(item => item.name && item.validPrice);
-
-    if (menuItems.length === 0) {
-      menuList.replaceChildren(
-        createElement(
-          "p",
-          "menu-message",
-          "No menu items found. Check your Google Sheet headers: id, category, name, price."
-        )
-      );
-
-      renderCategories();
-      renderCart();
-      return;
-    }
-
-    renderCategories();
-    renderMenu();
-    renderCart();
-
-  } catch (error) {
-    console.error(error);
-
-    menuList.replaceChildren(
-      createElement(
-        "p",
-        "menu-message",
-        "Menu load nahi hua. Internet aur published Google Sheet URL check karo."
-      )
-    );
-  }
 }
 
+#add,
 
-// Keep existing menu heading and search bar.
-function getMenuList() {
-  let list = menuContainer.querySelector(".menu-list");
+#phone {
 
-  if (!list) {
-    list = createElement("div", "menu-list");
-    searchInput.insertAdjacentElement("afterend", list);
-  }
+    display: flex;
 
-  return list;
+    gap: .2rem;
+
 }
 
+#menudetails {
 
-// =========================================================
-// CATEGORY BUTTONS
-// =========================================================
+    height: 80vh;
 
-function renderCategories() {
-  let list = categoryContainer.querySelector(".category-list");
-
-  if (!list) {
-    list = createElement("div", "category-list");
-    categoryContainer.appendChild(list);
-  }
-
-  list.replaceChildren();
-
-  const categories = [
-    "All",
-    ...new Set(menuItems.map(item => item.category))
-  ];
-
-  categories.forEach(category => {
-    const button = createElement(
-      "button",
-      "category-btn",
-      category
-    );
-
-    button.type = "button";
-
-    if (selectedCategory === category) {
-      button.classList.add("active");
-    }
-
-    button.addEventListener("click", () => {
-      selectedCategory = category;
-      renderCategories();
-      renderMenu();
-    });
-
-    list.appendChild(button);
-  });
-  const allItemsButton = document.getElementById("mobileAllItemsBtn");
-
-if (allItemsButton) {
-    const isAllSelected = selectedCategory === "All";
-
-    allItemsButton.classList.toggle("active", isAllSelected);
-    allItemsButton.setAttribute(
-        "aria-pressed",
-        String(isAllSelected)
-    );
-}
 }
 
-const mobileAllItemsButton =
-    document.getElementById("mobileAllItemsBtn");
+footer {
 
-mobileAllItemsButton?.addEventListener("click", () => {
-    selectedCategory = "All";
+    height: 10vh;
 
-    renderCategories();
-    renderMenu();
-});
+    display: flex;
 
-// =========================================================
-// RENDER MENU CARDS
-// =========================================================
+    justify-content: space-evenly;
 
-function renderMenu() {
-  const list = getMenuList();
-  list.replaceChildren();
+    align-items: center;
 
-  const searchText = searchInput.value
-    .trim()
-    .toLowerCase();
+    background-color: var(--bg);
 
-  const vegOnly = document.getElementById("vegOnlyToggle")?.checked || false;
-
-const filtered = menuItems.filter(item => {
-    const matchesCategory =
-        selectedCategory === "All" ||
-        item.category === selectedCategory;
-
-    const matchesSearch =
-        item.name.toLowerCase().includes(searchText) ||
-        item.category.toLowerCase().includes(searchText);
-
-    const foodType = String(item.foodtype || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[\s-]/g, "");
-
-    const matchesFoodType =
-        !vegOnly || foodType === "veg";
-
-    return matchesCategory && matchesSearch && matchesFoodType;
-});
-
-  if (filtered.length === 0) {
-    list.appendChild(
-      createElement("p", "menu-message", "No dishes found.")
-    );
-
-    return;
-  }
-
-  filtered.forEach(item => {
-    const card = createElement("div", "menu-item");
-     const isOutOfStock = item.availability === 'No';
-
-if (isOutOfStock) {
-  card.classList.add('out-of-stock');
 }
 
+#Fdetails {
 
-    const name = createElement("h3", "menu-item-name");
+    display: flex;
 
-const foodType = String(item.foodtype || '').trim().toLowerCase();
+    justify-content: space-evenly;
 
-const foodIcon = createElement(
-  "span",
-  "food-symbol " + (foodType === "non-veg" ? "non-veg" : "veg")
-);
+    align-items: center;
 
-foodIcon.setAttribute(
-  "aria-label",
-  foodType === "non-veg" ? "Non-Veg" : "Veg"
-);
-
-foodIcon.title = foodType === "non-veg" ? "Non-Veg" : "Veg";
-
-name.append(
-  foodIcon,
-  document.createTextNode(item.name)
-);
-
-    const bottom = createElement(
-      "div",
-      "menu-item-bottom"
-    );
-
-    const price = createElement(
-      "p",
-      "menu-item-price",
-      `₹${formatPrice(item.price)}`
-    );
-
-    const addButton = createElement(
-      "button",
-      "add-to-cart",
-      cart.has(item.id) ? "Add More +" : "Add +"
-    );
-
-    addButton.type = "button";
-    if (isOutOfStock) {
-  addButton.disabled = true;
-  addButton.textContent = 'Out of Stock';
-  addButton.setAttribute('aria-label', item.name + ' is out of stock');
 }
 
-    addButton.addEventListener("click", () => {
-  if (item.availability === 'No') return;
-  addToCart(item.id);
-});
+#cafedet {
 
-    bottom.append(price, addButton);
-    card.append(name, bottom);
-    list.appendChild(card);
-  });
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: .5rem;
+
 }
 
-const vegOnlyToggle = document.getElementById("vegOnlyToggle");
+#cafedet i {
 
-vegOnlyToggle?.addEventListener("change", () => {
-    renderMenu();
-});
-// =========================================================
-// CART FUNCTIONS
-// =========================================================
+    font-size: 2rem;
 
-function addToCart(id) {
-  const quantity = cart.get(id) || 0;
-
-  cart.set(id, quantity + 1);
-
-  renderCart();
-  renderMenu();
 }
 
+#cafedet h1 {
 
-function changeQuantity(id, change) {
-  const quantity = cart.get(id) || 0;
-  const newQuantity = quantity + change;
+    font-weight: 700;
 
-  if (newQuantity <= 0) {
-    cart.delete(id);
-  } else {
-    cart.set(id, newQuantity);
-  }
-
-  renderCart();
-  renderMenu();
 }
 
+#cafesociallinks {
 
-function removeFromCart(id) {
-  cart.delete(id);
+    display: flex;
 
-  renderCart();
-  renderMenu();
+    gap: .5rem;
+
 }
 
+#cafesociallinks i {
 
-// =========================================================
-// RENDER CART
-// =========================================================
+    height: 35px;
 
-function renderCart() {
-  let cartItems = cartContainer.querySelector(".cart-items");
-  let totalElement = cartContainer.querySelector(".cart-total");
+    display: flex;
 
-  if (!cartItems) {
-    cartItems = createElement("div", "cart-items");
+    align-items: center;
 
-    placeOrderButton.insertAdjacentElement(
-      "beforebegin",
-      cartItems
-    );
-  }
+    justify-content: center;
 
-  if (!totalElement) {
-    totalElement = createElement("div", "cart-total");
+    font-size: 1.2rem;
 
-    placeOrderButton.insertAdjacentElement(
-      "beforebegin",
-      totalElement
-    );
-  }
+    width: 35px;
 
-  cartItems.replaceChildren();
+    border: none;
 
-  let total = 0;
-  let totalQuantity = 0;
+    background: var(--button-bg);
 
-  cart.forEach((quantity, id) => {
-    const item = menuItems.find(
-      menuItem => menuItem.id === id
-    );
+    border-radius: 50%;
 
-    if (!item) return;
+    color: var(--input-text);
 
-    total += item.price * quantity;
-    totalQuantity += quantity;
-
-    const row = createElement("div", "cart-item");
-
-    const info = createElement("div", "cart-item-info");
-
-    const name = createElement("h4", "", item.name);
-
-    const linePrice = createElement(
-      "p",
-      "cart-line-price",
-      `₹${formatPrice(item.price * quantity)}`
-    );
-
-    info.append(name, linePrice);
-
-    const controls = createElement(
-      "div",
-      "cart-item-controls"
-    );
-
-    const minusButton = createElement(
-      "button",
-      "qty-btn",
-      "−"
-    );
-
-    minusButton.type = "button";
-    minusButton.setAttribute(
-      "aria-label",
-      `Decrease ${item.name}`
-    );
-
-    minusButton.addEventListener("click", () => {
-      changeQuantity(id, -1);
-    });
-
-    const quantityText = createElement(
-      "span",
-      "cart-quantity",
-      String(quantity)
-    );
-
-    const plusButton = createElement(
-      "button",
-      "qty-btn",
-      "+"
-    );
-
-    plusButton.type = "button";
-    plusButton.setAttribute(
-      "aria-label",
-      `Increase ${item.name}`
-    );
-
-    plusButton.addEventListener("click", () => {
-      changeQuantity(id, 1);
-    });
-
-    controls.append(
-      minusButton,
-      quantityText,
-      plusButton
-    );
-
-    const removeButton = createElement(
-      "button",
-      "remove-item",
-      "Remove"
-    );
-
-    removeButton.type = "button";
-
-    removeButton.addEventListener("click", () => {
-      removeFromCart(id);
-    });
-
-    row.append(info, controls, removeButton);
-    cartItems.appendChild(row);
-  });
-
-  if (cart.size === 0) {
-    cartItems.appendChild(
-      createElement(
-        "p",
-        "cart-empty",
-        "Your cart is empty."
-      )
-    );
-  }
-
-  totalElement.replaceChildren();
-
-  const totalLabel = createElement(
-    "span",
-    "",
-    `Total (${totalQuantity} item${totalQuantity === 1 ? "" : "s"})`
-  );
-
-  const totalPrice = createElement(
-    "strong",
-    "",
-    `₹${formatPrice(total)}`
-  );
-
-  totalElement.append(totalLabel, totalPrice);
-
-  placeOrderButton.disabled = cart.size === 0;
-
-  placeGstNote();
 }
 
+#cafesociallinks i:hover {
 
-// =========================================================
-// ORDER TYPE: DELIVERY OR TABLE
-// =========================================================
+    background: transparent;
 
-// QR URLs:
-// ?orderType=delivery
-// ?orderType=table&table=5
-//
-// Normal URL defaults to table mode.
+    border: 1px solid var(--button-bg);
 
-const customerPageParams = new URLSearchParams(
-  window.location.search
-);
-
-const requestedOrderType = (
-  customerPageParams.get("orderType") ||
-  customerPageParams.get("mode") ||
-  "table"
-).trim().toLowerCase();
-
-const orderType =
-  requestedOrderType === "delivery" ? "delivery" : "table";
-
-const orderTableNumber = (
-  customerPageParams.get("table") || ""
-).trim();
-
-const orderModal = document.getElementById("orderModal");
-const closeOrderModalButton =
-  document.getElementById("closeOrderModal");
-
-const customerOrderForm =
-  document.getElementById("customerOrderForm");
-
-const customerNameInput =
-  document.getElementById("customerName");
-
-const customerPhoneInput =
-  document.getElementById("customerPhone");
-
-const customerAddressField =
-  document.getElementById("customerAddressField");
-
-const customerAddressInput =
-  document.getElementById("customerAddress");
-
-const orderModeDescription =
-  document.getElementById("orderModeDescription");
-
-const gstNote = document.getElementById("gst-note");
-
-let customerNotesInput = null;
-
-
-// =========================================================
-// DYNAMIC ORDER NOTES FIELD
-// =========================================================
-
-function ensureCustomerNotesField() {
-  if (!customerOrderForm) return null;
-
-  const existingInput = document.getElementById("customerOrderNotes");
-
-  if (existingInput) {
-    customerNotesInput = existingInput;
-    return customerNotesInput;
-  }
-
-  const field = document.createElement("div");
-  field.id = "customerOrderNotesField";
-  field.className = "customer-notes-field";
-  field.style.marginTop = "12px";
-  field.style.width = "100%";
-
-  const label = document.createElement("label");
-  label.htmlFor = "customerOrderNotes";
-  label.textContent = "Order notes (optional)";
-  label.style.display = "block";
-  label.style.marginBottom = "6px";
-  label.style.fontWeight = "600";
-
-  const textarea = document.createElement("textarea");
-  textarea.id = "customerOrderNotes";
-  textarea.name = "orderNotes";
-  textarea.rows = 3;
-  textarea.maxLength = 500;
-  textarea.placeholder =
-    "Example: extra spicy, less sugar, no onion, sauce on the side...";
-  textarea.setAttribute("aria-label", "Optional order notes");
-
-  textarea.style.display = "block";
-  textarea.style.width = "100%";
-  textarea.style.minHeight = "84px";
-  textarea.style.boxSizing = "border-box";
-  textarea.style.resize = "vertical";
-  textarea.style.padding = "10px 12px";
-  textarea.style.border = "1px solid rgba(128,128,128,0.55)";
-  textarea.style.borderRadius = "8px";
-  textarea.style.background = "transparent";
-  textarea.style.color = "inherit";
-  textarea.style.font = "inherit";
-
-  const hint = document.createElement("small");
-  hint.textContent =
-    "Add preferences for the cafe, e.g. spicy or less sugar.";
-  hint.style.display = "block";
-  hint.style.marginTop = "5px";
-  hint.style.opacity = "0.75";
-
-  field.append(label, textarea, hint);
-
-  const submitButton = customerOrderForm.querySelector(
-    "#confirmWhatsAppOrder, button[type='submit'], input[type='submit']"
-  );
-
-  const actionRow = submitButton
-    ? submitButton.closest(
-        ".form-actions, .modal-actions, .order-form-actions"
-      )
-    : null;
-
-  if (actionRow && actionRow.parentElement === customerOrderForm) {
-    customerOrderForm.insertBefore(field, actionRow);
-  } else if (
-    submitButton &&
-    submitButton.parentElement &&
-    submitButton.parentElement !== customerOrderForm &&
-    submitButton.parentElement.parentElement === customerOrderForm
-  ) {
-    customerOrderForm.insertBefore(field, submitButton.parentElement);
-  } else if (
-    customerAddressField &&
-    customerAddressField.parentElement
-  ) {
-    customerAddressField.insertAdjacentElement("afterend", field);
-  } else if (submitButton && submitButton.parentElement) {
-    submitButton.parentElement.insertBefore(field, submitButton);
-  } else {
-    customerOrderForm.appendChild(field);
-  }
-
-  customerNotesInput = textarea;
-  return customerNotesInput;
 }
 
+#menudetails h1 {
 
-// =========================================================
-// CONFIGURE DELIVERY / TABLE POPUP
-// =========================================================
+    font-size: 3rem;
 
-function configureCustomerOrderMode() {
-  const isDeliveryOrder = orderType === "delivery";
+    margin-top: .5rem;
 
-  ensureCustomerNotesField();
+    font-weight: 800;
 
-  if (customerAddressField) {
-    customerAddressField.hidden = !isDeliveryOrder;
-  }
+    text-align: center;
 
-  if (customerAddressInput) {
-    customerAddressInput.required = isDeliveryOrder;
-    customerAddressInput.disabled = !isDeliveryOrder;
-    customerAddressInput.value = "";
-  }
-
-  if (customerNotesInput) {
-    customerNotesInput.value = "";
-  }
-
-  if (orderModeDescription) {
-    orderModeDescription.textContent = isDeliveryOrder
-      ? "Delivery order: enter your name, phone number and delivery address. Add any food preferences in notes."
-      : "Table order: enter your name and phone number. Add any food preferences in notes.";
-  }
-
-  document.body.dataset.orderType = orderType;
 }
 
+#menudetails h1 i {
 
-function openOrderModal() {
-  if (cart.size === 0) {
-    alert("Please add an item to your cart first.");
-    return;
-  }
+    font-size: 2rem;
 
-  configureCustomerOrderMode();
+    align-items: center;
 
-  orderModal?.classList.add("is-open");
-  orderModal?.setAttribute("aria-hidden", "false");
+    margin-right: .2rem;
 
-  customerNameInput?.focus();
 }
 
+#menucontainer {
 
-function closeOrderModal() {
-  orderModal?.classList.remove("is-open");
-  orderModal?.setAttribute("aria-hidden", "true");
+    display: grid;
 
-  placeOrderButton?.focus();
+    grid-template-columns: 18fr 57fr 25fr;
+
+    gap: .1rem;
+
+    height: 80vh;
+
+    align-items: stretch;
+
 }
 
+#Mcatogery {
 
-// Keep GST note immediately above Place Order.
-function placeGstNote() {
-  if (gstNote && placeOrderButton) {
-    placeOrderButton.insertAdjacentElement(
-      "beforebegin",
-      gstNote
-    );
-  }
+    border: 1px solid var(--border);
+
+    padding: 1rem;
+
+    display: flex;
+
+    flex-direction: column;
+
+    height: 100%;
+
+    min-height: 0;
+
+    overflow: hidden;
+
 }
 
+#Mitems {
 
-configureCustomerOrderMode();
-placeGstNote();
+    border: 1px solid var(--border);
 
-placeOrderButton.addEventListener(
-  "click",
-  openOrderModal
-);
+    padding: 1rem;
 
-closeOrderModalButton?.addEventListener(
-  "click",
-  closeOrderModal
-);
+    display: flex;
 
-orderModal?.addEventListener("click", (event) => {
-  if (event.target === orderModal) {
-    closeOrderModal();
-  }
-});
+    flex-direction: column;
 
-document.addEventListener("keydown", (event) => {
-  if (
-    event.key === "Escape" &&
-    orderModal?.classList.contains("is-open")
-  ) {
-    closeOrderModal();
-  }
-});
+    overflow: hidden;
 
+}
 
-// =========================================================
-// SEND ORDER TO THE PUBLIC API
-// =========================================================
+#cart {
 
-function postOrderToAppsScript(payload) {
-  const apiUrl = String(PUBLIC_API_URL || "").trim();
+    border: 1px solid var(--border);
 
-  if (
-    !apiUrl ||
-    apiUrl.includes("PASTE_PUBLIC_ORDER_API_URL_HERE")
-  ) {
-    return Promise.reject(
-      new Error("Public Order API URL is missing.")
-    );
-  }
+    padding: 1rem;
 
-  return new Promise((resolve, reject) => {
-    const frame = document.createElement("iframe");
+    display: flex;
 
-    const frameName =
-      "cafeOrderFrame_" +
-      Date.now() +
-      "_" +
-      Math.random().toString(36).slice(2);
+    flex-direction: column;
 
-    frame.name = frameName;
-    frame.title = "Order submission";
-    frame.setAttribute("aria-hidden", "true");
-    frame.tabIndex = -1;
+    height: 100%;
 
-    Object.assign(frame.style, {
-      position: "fixed",
-      width: "1px",
-      height: "1px",
-      opacity: "0",
-      left: "-10000px",
-      pointerEvents: "none"
-    });
+    min-height: 0;
 
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = apiUrl;
-    form.target = frameName;
-    form.enctype = "application/x-www-form-urlencoded";
-    form.style.display = "none";
+    overflow: hidden;
 
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = "payload";
-    input.value = JSON.stringify(payload);
+}
 
-    form.appendChild(input);
+#Mitems h2,
 
-    let settled = false;
-    let timeoutId;
+#cart h2,
 
-    function finish(callback, value) {
-      if (settled) return;
+#Mcatogery h2 {
 
-      settled = true;
-      clearTimeout(timeoutId);
-      window.removeEventListener("message", onMessage);
+    font-size: 1.5rem;
 
-      form.remove();
-      frame.remove();
+    text-align: center;
 
-      callback(value);
+    padding-bottom: .5rem;
+
+    border-bottom: 1px solid var(--button-hover);
+
+}
+
+#cart button {
+
+    width: 100%;
+
+    padding: .5rem;
+
+    margin-top: auto;
+
+    border: none;
+
+    border-radius: var(--radius-sm);
+
+    background-color: var(--button-bg);
+
+    color: var(--button-text);
+
+    font-size: 1rem;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+}
+
+#cart button:hover {
+
+    background-color: var(--button-hover);
+
+}
+
+#cart h2 i {
+
+    margin-right: .5rem;
+
+    font-size: 1.2rem;
+
+}
+
+#Mitems h2 i {
+
+    margin-right: .5rem;
+
+    font-size: 1.2rem;
+
+}
+
+#Mcatogery h2 i {
+
+    margin-right: .5rem;
+
+    font-size: 1.2rem;
+
+}
+
+/* =========================
+
+   MENU ITEMS
+
+========================= */
+
+.menu-list {
+
+    display: grid;
+
+    grid-template-columns: repeat(3, minmax(100px, 1fr));
+
+    gap: 10px;
+
+    padding-top: 1rem;
+
+    margin-top: .3rem;
+
+    overflow-y: auto;
+
+    overflow-x: hidden;
+
+    padding-right: 6px;
+
+}
+
+/* Scrollbar styling */
+
+.menu-list::-webkit-scrollbar {
+
+    width: 6px;
+
+}
+
+.menu-list::-webkit-scrollbar-thumb {
+
+    background-color: var(--border);
+
+    border-radius: 10px;
+
+}
+
+.menu-list::-webkit-scrollbar-thumb:hover {
+
+    background-color: var(--primary);
+
+}
+
+.menu-list::-webkit-scrollbar-track {
+
+    background: transparent;
+
+}
+
+.menu-item {
+
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: space-between;
+
+    gap: 1rem;
+
+    padding: 16px;
+
+    background: var(--card-bg);
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius-md);
+
+    transition: border-color 0.2s ease, transform 0.2s ease;
+
+}
+
+.menu-item:hover {
+
+    border-color: var(--primary);
+
+    transform: translateY(-2px);
+
+}
+
+.menu-item-name {
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 15px;
+
+    font-weight: 500;
+
+}
+.menu-item-name {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* =========================================
+   FOODQR MENU HEADER + FOOD TYPE SYMBOLS
+========================================= */
+
+/* ---------- Menu heading layout ---------- */
+
+.menu-heading-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 0 0 10px;
+    padding: 0 12px;
+    box-sizing: border-box;
+}
+
+.menu-heading-row h2 {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
+    margin: 0;
+    text-align: center;
+    white-space: nowrap;
+    font-size: clamp(16px, 2vw, 22px);
+}
+
+/* ---------- All Items button ---------- */
+
+.mobile-all-items-btn {
+    display: none;
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    align-items: center;
+    justify-content: center;
+
+    padding: 8px 11px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+
+    background: var(--card-bg);
+    color: var(--text);
+
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+
+    cursor: pointer;
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.mobile-all-items-btn:hover {
+    border-color: var(--primary);
+}
+
+.mobile-all-items-btn.active {
+    background: var(--primary);
+    color: var(--button-text);
+    border-color: var(--primary);
+}
+
+/* ---------- Veg Only container ---------- */
+
+.veg-filter-row {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+
+    margin: 0;
+    padding: 8px 10px;
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+
+    background: var(--card-bg);
+    color: var(--text);
+
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+.veg-filter-label {
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* ---------- Veg Only toggle ---------- */
+
+.veg-switch {
+    position: relative;
+    display: inline-block;
+
+    width: 40px;
+    height: 23px;
+    flex: 0 0 40px;
+
+    cursor: pointer;
+}
+
+.veg-switch input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.veg-switch-slider {
+    position: absolute;
+    inset: 0;
+
+    border-radius: 24px;
+    background: #858585;
+
+    transition: background 0.25s ease;
+}
+
+.veg-switch-slider::before {
+    content: "";
+    position: absolute;
+
+    width: 17px;
+    height: 17px;
+    left: 3px;
+    top: 3px;
+
+    border-radius: 50%;
+    background: #ffffff;
+
+    transition: transform 0.25s ease;
+}
+
+/* ON = Green */
+
+.veg-switch input:checked + .veg-switch-slider {
+    background: #16a34a;
+}
+
+.veg-switch input:checked + .veg-switch-slider::before {
+    transform: translateX(17px);
+}
+
+/* Keyboard accessibility */
+
+.veg-switch input:focus-visible + .veg-switch-slider {
+    outline: 2px solid #86efac;
+    outline-offset: 3px;
+}
+
+/* ---------- Veg / Non-Veg food symbols ---------- */
+
+.food-symbol {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+
+    border: 2px solid currentColor;
+    box-sizing: border-box;
+}
+
+.food-symbol::after {
+    content: "";
+    width: 6px;
+    height: 6px;
+
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.food-symbol.veg {
+    color: #16a34a;
+    border-color: #16a34a;
+}
+
+.food-symbol.non-veg {
+    color: #dc2626;
+    border-color: #dc2626;
+}
+
+/* Food icon + dish name alignment */
+
+.menu-item-name,
+.food-item-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* =========================================
+   MOBILE RESPONSIVE: WIDTH <= 600px
+========================================= */
+
+@media (max-width: 600px) {
+
+    .menu-heading-row {
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        gap: 5px;
+
+        margin-bottom: 8px;
+        padding: 0 6px;
     }
 
-    function onMessage(event) {
-      const data = event.data;
-
-      // Match only the response for this submission.
-      // Apps Script responses can arrive from a nested frame.
-      if (
-        !data ||
-        data.type !== "cafe-order-result" ||
-        typeof data.ok !== "boolean" ||
-        !payload.requestId ||
-        data.requestId !== payload.requestId
-      ) {
-        return;
-      }
-
-      if (data.ok) {
-        finish(resolve, data);
-      } else {
-        finish(
-          reject,
-          new Error(
-            data.error || "Could not save the order."
-          )
-        );
-      }
+    .menu-heading-row h2 {
+        font-size: 14px;
+        line-height: 1.3;
+        white-space: nowrap;
     }
 
-    timeoutId = setTimeout(() => {
-      finish(
-        reject,
-        new Error(
-          "Order save response timed out. Check the Orders sheet before retrying."
-        )
-      );
-    }, 25000);
+    .menu-heading-row h2 i {
+        font-size: 12px;
+    }
 
-    window.addEventListener("message", onMessage);
+    /* Show All Items only on mobile */
 
-    document.body.appendChild(frame);
-    document.body.appendChild(form);
+    .mobile-all-items-btn {
+        display: inline-flex;
+        padding: 6px 7px;
 
-    form.submit();
-  });
+        font-size: 10px;
+        line-height: 1.2;
+        border-radius: 7px;
+    }
+
+    /* Compact bordered Veg Only box */
+
+    .veg-filter-row {
+        gap: 4px;
+        padding: 5px 6px;
+        border-radius: 7px;
+    }
+
+    .veg-filter-label {
+        font-size: 10px;
+    }
+
+    /* Smaller toggle */
+
+    .veg-switch {
+        width: 30px;
+        height: 19px;
+        flex-basis: 30px;
+    }
+
+    .veg-switch-slider::before {
+        width: 13px;
+        height: 13px;
+        left: 3px;
+        top: 3px;
+    }
+
+    .veg-switch input:checked + .veg-switch-slider::before {
+        transform: translateX(11px);
+    }
+
+    /* Smaller food symbols on mobile */
+
+    .food-symbol {
+        width: 14px;
+        height: 14px;
+        flex-basis: 14px;
+    }
+
+    .food-symbol::after {
+        width: 5px;
+        height: 5px;
+    }
+
+    .menu-item-name,
+    .food-item-name {
+        gap: 6px;
+    }
+}
+
+/* =========================================
+   VERY SMALL PHONES: WIDTH <= 360px
+========================================= */
+
+@media (max-width: 360px) {
+
+    .menu-heading-row {
+        gap: 3px;
+        padding: 0 4px;
+    }
+
+    .menu-heading-row h2 {
+        font-size: 12px;
+    }
+
+    .menu-heading-row h2 i {
+        font-size: 11px;
+    }
+
+    .mobile-all-items-btn {
+        padding: 6px 5px;
+        font-size: 9px;
+    }
+
+    .veg-filter-row {
+        gap: 3px;
+        padding: 4px;
+    }
+
+    .veg-filter-label {
+        font-size: 9px;
+    }
+
+    .veg-switch {
+        width: 27px;
+        height: 18px;
+        flex-basis: 27px;
+    }
+
+    .veg-switch-slider::before {
+        width: 12px;
+        height: 12px;
+        left: 3px;
+        top: 3px;
+    }
+
+    .veg-switch input:checked + .veg-switch-slider::before {
+        transform: translateX(9px);
+    }
+}
+.food-symbol {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 2px solid;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+}
+
+.food-symbol::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.food-symbol.veg {
+  color: #16a34a;
+  border-color: #16a34a;
+}
+
+.food-symbol.non-veg {
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+/* Price left, Add button right */
+
+.menu-item-bottom {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+}
+
+.menu-item-price {
+
+    color: white;
+
+    font-size: 15px;
+
+    font-weight: 700;
+
+}
+
+.add-to-cart {
+
+    width: auto;
+
+    max-width: 60%;
+
+    padding: 8px 12px;
+
+    border: none;
+
+    border-radius: 7px;
+
+    background: var(--button-hover);
+
+    color: var(--button-text);
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+    white-space: nowrap;
+
+    cursor: pointer;
+
+    transition: background 0.2s ease, transform 0.2s ease;
+
+}
+.menu-item.out-of-stock {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.menu-item.out-of-stock::after {
+  content: "OUT OF STOCK";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 18, 34, 0.58);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  pointer-events: none;
+}
+
+.menu-item.out-of-stock .add-to-cart:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.add-to-cart:hover {
+
+    background: var(--primary);
+
+    transform: translateY(-1px);
+
+}
+
+/* =========================
+
+   CATEGORY BUTTONS
+
+========================= */
+
+.category-list {
+
+    display: flex;
+
+    flex-direction: column;
+
+    flex-wrap: nowrap;
+
+    gap: 8px;
+
+    margin-top: 14px;
+
+    flex: 1;
+
+    min-height: 0;
+
+    overflow-y: auto;
+
+    overflow-x: hidden;
+
+    padding-right: 6px;
+
+}
+
+/* Scrollbar design */
+
+.category-list::-webkit-scrollbar {
+
+    width: 6px;
+
+}
+
+.category-list::-webkit-scrollbar-thumb {
+
+    background: var(--border);
+
+    border-radius: 10px;
+
+}
+
+.category-list::-webkit-scrollbar-thumb:hover {
+
+    background: var(--primary);
+
+}
+
+.category-list::-webkit-scrollbar-track {
+
+    background: transparent;
+
+}
+
+.category-btn {
+
+    width: 100%;
+
+    padding: 8px 13px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 10px;
+
+    background: var(--surface);
+
+    color: var(--text);
+    text-align: left;
+
+    font-size: 13px;
+
+    cursor: pointer;
+
+    transition: 0.2s ease;
+
+}
+
+.category-btn:hover,
+
+.category-btn.active {
+
+    border-color: var(--primary);
+
+    background: var(--primary);
+
+    color: var(--button-text);
+
+}
+
+/* =========================
+
+   SEARCH INPUT
+
+========================= */
+
+#searchitem {
+
+    width: 100%;
+
+    padding: 12px 14px;
+
+    border: 1px solid var(--input-border);
+
+    border-radius: var(--radius-sm);
+
+    outline: var(--input-border);
+
+    background: var(--input-bg);
+
+    color: var(--input-text);
+
+    font-size: 14px;
+
+}
+
+#searchitem::placeholder {
+
+    color: var(--input-placeholder);
+
+}
+
+#searchitem:focus {
+
+    border-color: var(--primary);
+
+}
+
+/* =========================
+
+   CART
+
+========================= */
+
+.cart-items {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 12px;
+
+    margin-top: .3rem;
+
+    flex: 1;
+
+    min-height: 0;
+
+    min-width: 0;
+
+    padding: 5px 8px 5px 0;
+
+    overflow-y: auto;
+
+    overflow-x: hidden;
+
+}
+
+/* Scrollbar design */
+
+.cart-items::-webkit-scrollbar {
+
+    width: 6px;
+
+}
+
+.cart-items::-webkit-scrollbar-thumb {
+
+    background: var(--border);
+
+    border-radius: 10px;
+
+}
+
+.cart-items::-webkit-scrollbar-thumb:hover {
+
+    background: var(--primary);
+
+}
+
+.cart-items::-webkit-scrollbar-track {
+
+    background: transparent;
+
+}
+
+/* Cart item layout */
+
+.cart-item {
+
+    display: grid;
+
+    grid-template-columns: minmax(0, 1fr) auto;
+
+    grid-template-rows: auto auto;
+
+    align-items: center;
+
+    column-gap: 12px;
+
+    row-gap: 14px;
+
+    width: 100%;
+
+    flex-shrink: 0;
+
+    padding: 8px;
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius-md);
+
+    background: var(--card-bg);
+
+    margin-top: 1rem;
+
+}
+
+/* Left side: name and price */
+
+.cart-item-info {
+
+    grid-column: 1;
+
+    grid-row: 1;
+
+    min-width: 0;
+
+}
+
+.cart-item-info h4 {
+
+    margin: 0 0 8px;
+
+    color: var(--text);
+
+    font-size: 18px;
+
+    font-weight: 500;
+
+    line-height: 1.4;
+
+    overflow-wrap: anywhere;
+
+}
+
+.cart-line-price {
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 15px;
+
+    font-weight: 500;
+
+}
+
+/* Right side: quantity controls */
+
+.cart-item-controls {
+
+    grid-column: 2;
+
+    grid-row: 1;
+
+    display: flex;
+
+    flex-direction: row;
+
+    align-items: center;
+
+    justify-content: flex-end;
+
+    gap: 5px;
+
+}
+
+/* Minus and plus buttons */
+
+.qty-btn {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: 20px !important;
+
+    height: 20px;
+
+    padding: 0;
+
+    border: none;
+
+    border-radius: var(--radius-sm);
+
+    background: var(--button-bg);
+
+    color: var(--button-text);
+
+    font-size: 20px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    flex-shrink: 0;
+
+}
+
+.qty-btn:hover {
+
+    background: var(--button-hover);
+
+}
+
+/* Quantity number */
+
+.cart-quantity {
+
+    min-width: 20px;
+
+    color: var(--text);
+
+    font-size: 15px;
+
+    font-weight: 700;
+
+    text-align: center;
+
+}
+
+/* Remove button below both sides */
+
+.remove-item {
+
+    width: 100%;
+
+    background: none !important;
+
+    text-align: left;
+
+    border: none;
+
+    border-radius: var(--radius-sm);
+
+    color: rgb(253, 56, 56) !important;
+
+    margin: 0 !important;
+
+    padding: 0 !important;
+
+    font-size: 13px !important;
+
+    font-weight: 400 !important;
+
+    cursor: pointer;
+
+}
+
+.remove-item:hover {
+
+    background: var(--button-hover);
+
+}
+
+/* =========================
+
+   CART TOTAL
+
+========================= */
+
+.cart-total {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 12px;
+
+    margin-top: 18px;
+
+    padding: 15px 0;
+
+    border-top: 1px solid var(--border);
+
+    color: var(--text);
+
+    font-size: 14px;
+
+}
+
+.cart-total strong {
+
+    color: var(--primary-hover);
+
+    font-size: 19px;
+
+}
+
+/* =========================
+
+   PLACE ORDER BUTTON
+
+========================= */
+
+#placeorder {
+
+    width: 100%;
+
+    margin-top: 8px;
+
+    padding: 13px 16px;
+
+    border: none;
+
+    border-radius: var(--radius-sm);
+
+    background: var(--button-bg);
+
+    color: var(--button-text);
+
+    font-size: 14px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition: background 0.2s ease;
+
+}
+
+#placeorder:hover:not(:disabled) {
+
+    background: var(--button-hover);
+
+}
+
+#placeorder:disabled {
+
+    opacity: 0.5;
+
+    cursor: not-allowed;
+
+}
+
+/* =========================================================
+   LAYOUT FIXES: scroll regions and cart controls
+========================================================= */
+
+#menudetails,
+#menucontainer,
+#Mcatogery,
+#Mitems,
+#cart {
+    min-width: 0;
+    min-height: 0;
+}
+
+#menucontainer {
+    overflow: hidden;
+}
+
+#Mitems {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.menu-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    flex: 1 1 1;
+    min-width: 0;
+    min-height: 0;
+    overscroll-behavior: contain;
+}
+
+.category-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overscroll-behavior: contain;
+}
+
+.cart-items {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overscroll-behavior: contain;
+}
+
+#cart h2,
+.cart-total,
+#placeorder {
+    flex-shrink: 0;
+}
+
+.cart-items > .cart-item {
+    margin-top: 0;
+}
+
+.cart-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+}
+
+.cart-item-info {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.cart-item-controls {
+    grid-column: 2;
+    grid-row: 1;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+#cart .qty-btn {
+    width: 25px !important;
+    min-width: 25px;
+    height: 36px;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    flex-shrink: 0;
+}
+
+#cart .remove-item {
+    grid-row: 2;
+    display: block;
+    max-width: max-content;
+    margin: 0 !important;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--button-bg);
+    color: rgb(249, 94, 94)!important;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    text-align: left;
+}
+
+#cart .qty-btn:hover{
+    background-color: var(--button-hover);
+}
+#cart .remove-item:hover {
+    text-decoration: underline;
+}
+
+#cart > #placeorder {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 13px 16px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--button-bg);
+    color: var(--button-text);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* =========================================================
+   RESPONSIVE CONTROLS (added to HTML for mobile only)
+   IDs: mobilecategorytoggle, mobilecarttoggle,
+        mobilecategoryclose, mobilecartback,
+        mobileviewbackdrop, mobileplaceorder
+========================================================= */
+
+.mobile-header-btn,
+#mobilecategorytoggle,
+#mobilecarttoggle,
+#mobilecategoryclose,
+#mobilecartback,
+#mobileviewbackdrop,
+.mobile-orderbar {
+    display: none;
+}
+
+/* Keep all scroll areas constrained inside their panels */
+#Mitems,
+#Mcatogery,
+#cart,
+.menu-list,
+.category-list,
+.cart-items {
+    min-width: 0;
+    min-height: 0;
+}
+
+@media (min-width: 601px) and (max-width: 1024px) {
+    #cafedetails {
+        height: 9vh;
+        min-height: 64px;
+        padding: 12px 18px;
+        gap: 12px;
+    }
+
+    #cafe-logo {
+        font-size: 1.7rem;
+    }
+
+    #cafe-name {
+        font-size: clamp(0.95rem, 1.8vw, 1.25rem);
+        white-space: nowrap;
+    }
+
+    #address {
+        gap: clamp(8px, 1.5vw, 20px);
+        align-items: center;
+        font-size: clamp(0.75rem, 1.2vw, 0.95rem);
+    }
+
+    #menucontainer {
+        grid-template-columns: minmax(125px, 0.72fr) minmax(0, 2.2fr) minmax(205px, 1fr);
+        gap: 0;
+        height: 80vh;
+    }
+
+    #Mcatogery,
+    #Mitems,
+    #cart {
+        padding: 10px;
+    }
+
+    #Mitems h2,
+    #cart h2,
+    #Mcatogery h2 {
+        font-size: clamp(1rem, 1.7vw, 1.3rem);
+        padding-bottom: 8px;
+    }
+
+    .menu-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        padding-right: 5px;
+    }
+
+    .menu-item {
+        gap: 12px;
+        padding: 11px;
+        min-width: 0;
+    }
+
+    .menu-item-name,
+    .menu-item-price {
+        font-size: 13px;
+    }
+
+    .add-to-cart {
+        padding: 7px 8px;
+        font-size: 11px;
+    }
+
+    .category-btn {
+        padding: 8px 7px;
+        font-size: 12px;
+    }
+
+    .cart-items {
+        padding-right: 5px;
+        gap: 9px;
+    }
+
+    .cart-item {
+        padding: 10px;
+        column-gap: 7px;
+        row-gap: 9px;
+    }
+
+    .cart-item-info h4 {
+        font-size: 14px;
+    }
+
+    .cart-line-price {
+        font-size: 12px;
+    }
+
+    .cart-item-controls {
+        gap: 4px;
+    }
+
+    .qty-btn {
+        width: 28px;
+        min-width: 28px;
+        height: 30px;
+        font-size: 17px;
+    }
+
+    .cart-quantity {
+        min-width: 15px;
+        font-size: 12px;
+    }
+
+    .remove-item {
+        padding: 7px;
+        font-size: 13px;
+    }
+
+    .cart-total {
+        gap: 6px;
+        margin-top: 10px;
+        padding: 10px 0;
+        font-size: 12px;
+    }
+
+    .cart-total strong {
+        font-size: 16px;
+    }
+
+    #placeorder {
+        padding: 10px 8px;
+        font-size: 13px;
+    }
+
+    footer {
+        padding: 0 12px;
+    }
+}
+
+@media (max-width: 600px) {
+    :root {
+        --mobile-header-height: 62px;
+        --mobile-action-height: 76px;
+    }
+
+    html,
+    body {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    body {
+        display: flex;
+        flex-direction: column;
+        overscroll-behavior: none;
+    }
+
+    /* Compact header: filter | centered cafe name | cart */
+    #cafedetails {
+        position: relative;
+        z-index: 1005;
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) 42px;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        height: var(--mobile-header-height);
+        min-height: var(--mobile-header-height);
+        padding: 0 10px;
+        flex-shrink: 0;
+    }
+
+    #mobilecategorytoggle,
+    #mobilecarttoggle,
+    .mobile-header-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface);
+        color: var(--text);
+        font-size: 19px;
+        cursor: pointer;
+    }
+
+    #mobilecategorytoggle {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    #cafenamelogo {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: center;
+        min-width: 0;
+        max-width: 100%;
+        gap: 6px;
+        overflow: hidden;
+    }
+
+    #cafe-logo {
+        font-size: 1.35rem;
+        flex-shrink: 0;
+    }
+
+    #cafe-name {
+        display: block;
+        max-width: 100%;
+        font-size: clamp(0.9rem, 4vw, 1.15rem);
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    #mobilecarttoggle {
+        grid-column: 3;
+        grid-row: 1;
+        justify-self: end;
+        position: relative;
+    }
+
+    #address {
+        display: none !important;
+    }
+
+    /* Main view fills remaining height above the fixed mobile action bar */
+    #menudetails {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: calc(100dvh - var(--mobile-header-height) - var(--mobile-action-height));
+        min-height: 0;
+        flex: 0 0 auto;
+        overflow: hidden;
+    }
+
+    #menudetails > h1 {
+        font-size: 1.5rem;
+        margin: 6px 0;
+        flex-shrink: 0;
+    }
+
+    #menucontainer {
+        display: block;
+        position: relative;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
+    }
+
+    #Mitems {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        padding: 12px;
+        border: 0;
+        overflow: hidden;
+    }
+
+    #Mitems h2 {
+        flex-shrink: 0;
+        font-size: 1.25rem;
+        padding-bottom: 10px;
+    }
+
+    #Mitems h2 i {
+        font-size: 1rem;
+        margin-right: 5px;
+    }
+
+    #searchitem {
+        flex-shrink: 0;
+        width: 100%;
+        margin-top: 10px;
+        padding: 11px 12px;
+        font-size: 14px;
+    }
+
+    .menu-list {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-content: start;
+        gap: 10px;
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        margin-top: 10px;
+        padding: 2px 6px 8px 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+    }
+
+    .menu-item {
+        min-width: 0;
+        min-height: 100px;
+        padding: 14px;
+        gap: 14px;
+    }
+
+    .menu-item-name {
+        font-size: 15px;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+    }
+
+    .menu-item-bottom {
+        gap: 10px;
+    }
+
+    .menu-item-price {
+        font-size: 15px;
+    }
+
+    .add-to-cart {
+        max-width: 65%;
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    /* Hidden by default; JS adds body.mobile-categories-open to reveal it */
+    #Mcatogery {
+        display: none;
+    }
+
+    body.mobile-categories-open #Mcatogery {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        z-index: 1002;
+        top: var(--mobile-header-height);
+        bottom: var(--mobile-action-height);
+        left: 0;
+        width: min(86vw, 340px);
+        height: auto;
+        max-height: none;
+        padding: 14px;
+        overflow: hidden;
+        background: var(--bg);
+        box-shadow: var(--shadow);
+    }
+
+    #Mcatogery h2 {
+        position: relative;
+        flex-shrink: 0;
+        font-size: 1.25rem;
+        padding: 0 34px 10px 0;
+    }
+
+    .category-list {
+        display: flex;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        flex: 1 1 auto;
+        min-height: 0;
+        margin-top: 12px;
+        padding-right: 6px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+    }
+
+    .category-btn {
+        flex-shrink: 0;
+        width: 100%;
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    #mobilecategoryclose,
+    #mobilecartback {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        position: absolute;
+        top: 0;
+        right: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+    }
+
+    .mobile-view-backdrop,
+    #mobileviewbackdrop {
+        display: none;
+    }
+
+    body.mobile-categories-open #mobileviewbackdrop {
+        display: block;
+        position: fixed;
+        z-index: 1000;
+        inset: var(--mobile-header-height) 0 var(--mobile-action-height);
+        width: 100%;
+        height: auto;
+        border: 0;
+        background: rgba(0, 0, 0, 0.58);
+    }
+
+    /* Mobile cart is a full-width panel below the header */
+    #cart {
+        display: none;
+    }
+
+    body.mobile-cart-open #Mitems,
+    body.mobile-cart-open #Mcatogery {
+        display: none !important;
+    }
+
+    body.mobile-cart-open #cart {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        z-index: 1002;
+        top: var(--mobile-header-height);
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: 100vw;
+        height: calc(100dvh - var(--mobile-header-height));
+        min-height: 0;
+        padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+        overflow: hidden;
+        border: 0;
+        background: var(--bg);
+    }
+
+    #cart h2 {
+        position: relative;
+        flex-shrink: 0;
+        font-size: 1.35rem;
+        padding: 0 42px 12px;
+    }
+
+    #cart h2 i {
+        font-size: 1.1rem;
+        margin-right: 6px;
+    }
+
+    .cart-items {
+        display: flex;
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        gap: 8px;
+        margin-top: 12px;
+        padding: 2px 7px 8px 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+    }
+
+    .cart-item {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: auto auto;
+        column-gap: 10px;
+        row-gap: 2px;
+        width: 100%;
+        padding: 14px;
+        flex-shrink: 0;
+    }
+
+    .cart-item-info h4 {
+        font-size: 16px;
+    }
+
+    .cart-line-price {
+        font-size: 14px;
+    }
+
+    .cart-item-controls {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .qty-btn {
+        width: 32px;
+        min-width: 32px;
+        height: 34px;
+        font-size: 18px;
+    }
+
+    .cart-quantity {
+        min-width: 17px;
+        font-size: 13px;
+    }
+
+    .remove-item {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        min-height: 42px;
+        font-size: 15px;
+    }
+
+    .cart-total {
+        flex-shrink: 0;
+        gap: 10px;
+        margin-top: 12px;
+        padding: 12px 0;
+        font-size: 14px;
+    }
+
+    .cart-total strong {
+        font-size: 19px;
+    }
+
+    #cart > #placeorder,
+    #placeorder {
+        flex-shrink: 0;
+        margin-top: 8px;
+        padding: 13px 14px;
+        font-size: 16px;
+    }
+
+    /* Fixed CTA on menu screen. Clicking it opens the cart view. */
+    .mobile-orderbar {
+        display: flex;
+        position: fixed;
+        z-index: 900;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        align-items: center;
+        width: 100%;
+        min-height: var(--mobile-action-height);
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+        background: var(--bg);
+        border-top: 1px solid var(--border);
+    }
+
+    #mobileplaceorder {
+        display: block;
+        width: 100%;
+        min-height: 48px;
+        padding: 12px 16px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: var(--button-bg);
+        color: var(--button-text);
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    #mobileplaceorder:hover {
+        background: var(--button-hover);
+    }
+
+    body.mobile-cart-open .mobile-orderbar {
+        display: none;
+    }
+
+    /* The desktop branding/social footer is replaced by the mobile action bar */
+    footer {
+        display: none;
+    }
+}
+
+@media (max-width: 360px) {
+    #cafedetails {
+        grid-template-columns: 38px minmax(0, 1fr) 38px;
+        padding: 0 7px;
+    }
+
+    #mobilecategorytoggle,
+    #mobilecarttoggle,
+    .mobile-header-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 17px;
+    }
+
+    #cafenamelogo {
+        gap: 4px;
+    }
+
+    #cafe-logo {
+        font-size: 1.1rem;
+    }
+
+    #cafe-name {
+        font-size: 0.88rem;
+    }
+
+    #Mitems {
+        padding: 10px;
+    }
+
+    .cart-item {
+        padding: 8px;
+        column-gap: 0;
+    }
+
+    .qty-btn {
+        width: 28px;
+        min-width: 28px;
+    }
 }
 
 
-// =========================================================
-// CONFIRM ORDER
-// Save first, then open WhatsApp
-// =========================================================
-
-customerOrderForm?.addEventListener(
-  "submit",
-  async (event) => {
-    event.preventDefault();
-
-    if (cart.size === 0) {
-      closeOrderModal();
-      alert("Your cart is empty. Please add an item first.");
-      return;
+/* =========================================================
+   LONG MOBILE CAFE BRAND FIX
+   Shrink the name/logo to a minimum, then move the whole
+   brand onto a second header row and allow the name to wrap.
+========================================================= */
+@media (max-width: 600px) {
+    :root {
+        --mobile-header-base-height: 62px;
+        --mobile-header-height: 62px;
     }
 
-    const customerName = customerNameInput.value.trim();
-    const customerPhone = customerPhoneInput.value.trim();
-    const customerAddress = customerAddressInput.value.trim();
-    if (!/^[6-9]\d{9}$/.test(customerPhone)) {
-    alert("Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.");
-    customerPhoneInput.focus();
-    return;
-}
-
-    const orderNotes = String(
-      ensureCustomerNotesField()?.value || ""
-    ).trim().slice(0, 500);
-
-    const isDeliveryOrder = orderType === "delivery";
-
-    if (!customerName) {
-      customerNameInput.focus();
-      customerNameInput.reportValidity();
-      return;
+    #cafedetails {
+        height: auto;
+        min-height: var(--mobile-header-base-height);
+        grid-template-columns: 42px minmax(0, 1fr) 42px;
+        grid-template-rows: 40px;
+        align-content: center;
+        padding: 6px 10px;
+        overflow: visible;
     }
 
-    if (isDeliveryOrder && !customerAddress) {
-      customerAddressInput.required = true;
-      customerAddressInput.focus();
-      customerAddressInput.reportValidity();
-      return;
+    #cafenamelogo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        overflow: visible;
+        gap: 6px;
     }
 
-    const phoneElement = document.querySelector("#phone p");
-
-    const cafePhoneSource =
-      PUBLIC_CONFIG.cafePhone ||
-      (phoneElement && phoneElement.textContent) ||
-      "";
-
-    let cafePhone = String(cafePhoneSource).replace(/\D/g, "");
-
-    if (cafePhone.length === 10) {
-      cafePhone = "91" + cafePhone;
+    #cafe-logo {
+        flex: 0 0 auto;
+        line-height: 1;
     }
 
-    if (!/^\d{11,15}$/.test(cafePhone)) {
-      alert("Cafe ka valid WhatsApp number check karo.");
-      return;
+    #cafe-name {
+        display: block;
+        flex: 0 1 auto;
+        min-width: 0;
+        max-width: calc(100% - 24px);
+        font-size: clamp(0.78rem, 4vw, 1.15rem);
+        line-height: 1.15;
+        white-space: nowrap;
+        overflow: visible;
+        text-overflow: clip;
     }
 
-    const orderItems = Array.from(cart.entries()).map(
-      ([id, quantity]) => ({
-        id: String(id),
-        quantity: Number(quantity)
-      })
-    );
-
-    if (!orderItems.length) {
-      alert("Your cart is empty. Please add an item first.");
-      return;
+    #cafe-name h1 {
+        margin: 0;
+        line-height: inherit;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: visible;
+        text-overflow: clip;
+        overflow-wrap: normal;
     }
 
-    const requestId =
-      window.crypto &&
-      typeof window.crypto.randomUUID === "function"
-        ? window.crypto.randomUUID()
-        : "req-" +
-          Date.now() +
-          "-" +
-          Math.random().toString(36).slice(2, 12);
-
-    const payload = {
-      requestId,
-      customerName,
-      customerPhone,
-      orderType,
-
-      deliveryAddress: isDeliveryOrder
-        ? customerAddress
-        : "",
-
-      tableNumber: orderTableNumber,
-      orderNotes,
-      items: orderItems,
-      website: ""
-    };
-
-    // Open a blank tab during the click to reduce popup blocking.
-    const whatsappWindow = window.open("about:blank", "_blank");
-
-    if (!whatsappWindow) {
-      alert(
-        "Please allow pop-ups for this cafe website, then confirm the order again."
-      );
-      return;
+    /* Triggered by JS only when the brand cannot fit at minimum size. */
+    #cafedetails.mobile-brand-wrapped {
+        height: auto;
+        min-height: var(--mobile-header-base-height);
+        grid-template-rows: 40px auto;
+        align-content: start;
+        row-gap: 5px;
+        padding: 6px 10px 9px;
     }
 
-    const confirmButton = document.getElementById(
-      "confirmWhatsAppOrder"
-    );
-
-    if (confirmButton) {
-      confirmButton.disabled = true;
-      confirmButton.textContent = "Saving order…";
+    #cafedetails.mobile-brand-wrapped #cafenamelogo {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-self: stretch;
+        align-self: center;
+        width: 100%;
+        max-width: 100%;
+        overflow: visible;
     }
 
-    try {
-      // Wait for the API to confirm that the order was saved.
-      const result = await postOrderToAppsScript(payload);
-
-      const lines = [
-        "Hello! I want to place an order.",
-        "",
-        "Order ID: " + result.orderId,
-        "Order Type: " +
-          (isDeliveryOrder ? "Delivery" : "Table"),
-        "Customer Name: " + customerName
-      ];
-
-      if (customerPhone) {
-        lines.push("Customer Phone: " + customerPhone);
-      }
-
-      if (isDeliveryOrder) {
-        lines.push("Delivery Address: " + customerAddress);
-      }
-
-      if (!isDeliveryOrder && orderTableNumber) {
-        lines.push("Table Number: " + orderTableNumber);
-      }
-
-      if (orderNotes) {
-        lines.push("Order Notes: " + orderNotes);
-      }
-
-      lines.push("", "ORDER DETAILS:");
-
-      (result.items || []).forEach(item => {
-        lines.push(
-          item.name +
-          " x " +
-          item.quantity +
-          " = ₹" +
-          formatPrice(item.lineTotal)
-        );
-      });
-
-      lines.push("");
-      lines.push(
-        "Subtotal: ₹" + formatPrice(result.subtotal)
-      );
-
-      lines.push(
-        "GST (" +
-        formatPrice(result.gstPercent) +
-        "%): ₹" +
-        formatPrice(result.gstAmount)
-      );
-
-      lines.push(
-        "Total: ₹" + formatPrice(result.total)
-      );
-
-      lines.push("");
-      lines.push("Please confirm my order.");
-
-      const whatsappURL =
-        "https://wa.me/" +
-        cafePhone +
-        "?text=" +
-        encodeURIComponent(lines.join("\n"));
-
-      whatsappWindow.opener = null;
-      whatsappWindow.location.href = whatsappURL;
-
-      closeOrderModal();
-      customerOrderForm.reset();
-      configureCustomerOrderMode();
-
-      console.info(
-        "Order saved before WhatsApp redirect:",
-        result.orderId
-      );
-
-    } catch (error) {
-      console.error(error);
-
-      try {
-        whatsappWindow.close();
-      } catch (_) {}
-
-      alert(
-        (error && error.message) ||
-        "Order save nahi hua. Please try again."
-      );
-
-    } finally {
-      if (confirmButton) {
-        confirmButton.disabled = false;
-
-        confirmButton.innerHTML =
-          '<i class="fa-brands fa-whatsapp" aria-hidden="true"></i> Confirm Order on WhatsApp';
-      }
+    #cafedetails.mobile-brand-wrapped #cafe-name {
+        flex: 0 1 auto;
+        min-width: 0;
+        max-width: calc(100% - 24px);
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        overflow-wrap: anywhere;
+        text-align: center;
     }
-  }
-);
 
+    #cafedetails.mobile-brand-wrapped #cafe-name h1 {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: normal;
+        text-align: center;
+    }
 
-// =========================================================
-// SEARCH DISHES
-// =========================================================
-
-searchInput.addEventListener("input", renderMenu);
-
-
-// Start: load owner-configured settings and menu.
-initialiseCustomerPage();
-
-
-// =========================================================
-// MOBILE CATEGORY DRAWER + CART VIEW
-// =========================================================
-
-const mobileBody = document.body;
-
-const mobileCategoryToggle =
-  document.getElementById("mobilecategorytoggle");
-
-const mobileCartToggle =
-  document.getElementById("mobilecarttoggle");
-
-const mobileCategoryClose =
-  document.getElementById("mobilecategoryclose");
-
-const mobileCartBack =
-  document.getElementById("mobilecartback");
-
-const mobileBackdrop =
-  document.getElementById("mobileviewbackdrop");
-
-const mobilePlaceOrder =
-  document.getElementById("mobileplaceorder");
-
-
-const isMobileLayout = () =>
-  window.matchMedia("(max-width: 600px)").matches;
-
-
-function closeMobilePanels() {
-  mobileBody.classList.remove(
-    "mobile-categories-open",
-    "mobile-cart-open"
-  );
-
-  mobileCategoryToggle?.setAttribute(
-    "aria-expanded",
-    "false"
-  );
-
-  mobileCartToggle?.setAttribute(
-    "aria-expanded",
-    "false"
-  );
+    /* Main area uses the remaining height, even if the header has 2 rows. */
+    #menudetails {
+        height: auto;
+        min-height: 0;
+        flex: 1 1 0%;
+        margin-bottom: var(--mobile-action-height);
+        overflow: hidden;
+    }
 }
 
 
-function openMobileCategories() {
-  if (!isMobileLayout()) return;
-
-  mobileBody.classList.remove("mobile-cart-open");
-
-  const shouldOpen =
-    !mobileBody.classList.contains("mobile-categories-open");
-
-  mobileBody.classList.toggle(
-    "mobile-categories-open",
-    shouldOpen
-  );
-
-  mobileCategoryToggle?.setAttribute(
-    "aria-expanded",
-    String(shouldOpen)
-  );
-
-  mobileCartToggle?.setAttribute(
-    "aria-expanded",
-    "false"
-  );
+/* =========================
+   GST NOTE ABOVE PLACE ORDER
+========================= */
+#gst-note {
+    flex-shrink: 0;
+    margin: 4px 0 0;
+    padding: 4px 0 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.3;
+    text-align: center;
 }
 
-
-function openMobileCart() {
-  if (!isMobileLayout()) return;
-
-  mobileBody.classList.remove("mobile-categories-open");
-  mobileBody.classList.add("mobile-cart-open");
-
-  mobileCategoryToggle?.setAttribute(
-    "aria-expanded",
-    "false"
-  );
-
-  mobileCartToggle?.setAttribute(
-    "aria-expanded",
-    "true"
-  );
+/* =========================
+   CUSTOMER ORDER POPUP
+========================= */
+.order-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.76);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 
+.order-modal.is-open {
+    display: flex;
+}
 
-mobileCategoryToggle?.addEventListener(
-  "click",
-  openMobileCategories
-);
+.order-modal-content {
+    width: 100%;
+    max-width: 440px;
+    max-height: 90vh;
+    max-height: 90dvh;
+    overflow-y: auto;
+    padding: 22px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow);
+}
 
+.order-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
 
-mobileCartToggle?.addEventListener("click", () => {
-  if (!isMobileLayout()) return;
+.order-modal-header h2 {
+    margin: 0;
+    font-size: 21px;
+    line-height: 1.3;
+}
 
-  if (mobileBody.classList.contains("mobile-cart-open")) {
-    closeMobilePanels();
-  } else {
-    openMobileCart();
-  }
-});
+.order-modal-description {
+    margin: 8px 0 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
 
+.close-order-modal {
+    display: flex;
+    flex: 0 0 36px;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text);
+    font-size: 25px;
+    line-height: 1;
+    cursor: pointer;
+}
 
-mobileCategoryClose?.addEventListener(
-  "click",
-  closeMobilePanels
-);
+.close-order-modal:hover {
+    background: var(--card-bg);
+}
 
-mobileCartBack?.addEventListener(
-  "click",
-  closeMobilePanels
-);
+#customerOrderForm {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
 
-mobileBackdrop?.addEventListener(
-  "click",
-  closeMobilePanels
-);
+#customerOrderForm label {
+    margin-top: 5px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+}
 
+#customerOrderForm input,
+#customerOrderForm textarea {
+    width: 100%;
+    min-width: 0;
+    padding: 12px 13px;
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-sm);
+    outline: none;
+    background: var(--input-bg);
+    color: var(--input-text);
+    font-family: inherit;
+    font-size: 14px;
+}
 
-// Bottom CTA opens cart view.
-mobilePlaceOrder?.addEventListener(
-  "click",
-  openMobileCart
-);
+#customerOrderForm textarea {
+    min-height: 86px;
+    resize: vertical;
+}
 
+#customerOrderForm input::placeholder,
+#customerOrderForm textarea::placeholder {
+    color: var(--input-placeholder);
+}
 
-// Category buttons are rendered dynamically.
-document.addEventListener("click", (event) => {
-  const clickedCategory = event.target.closest(".category-btn");
+#customerOrderForm input:focus,
+#customerOrderForm textarea:focus {
+    border-color: var(--primary);
+}
 
-  if (clickedCategory && isMobileLayout()) {
-    closeMobilePanels();
-  }
-});
+.order-form-field[hidden] {
+    display: none !important;
+}
 
+.order-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
 
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") {
-    closeMobilePanels();
-  }
-});
+#confirmWhatsAppOrder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    width: 100%;
+    margin: 14px 0 0;
+    padding: 13px 12px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--button-bg);
+    color: var(--button-text);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+    cursor: pointer;
+}
 
+#confirmWhatsAppOrder:hover {
+    background: var(--button-hover);
+}
 
-// =========================================================
-// MOBILE HEADER: LONG CAFE NAME HANDLING
-// =========================================================
+#confirmWhatsAppOrder i {
+    flex-shrink: 0;
+    font-size: 19px;
+}
 
-const mobileCafeHeader =
-  document.getElementById("cafedetails");
-
-const mobileCafeBrand =
-  document.getElementById("cafenamelogo");
-
-const mobileCafeLogo =
-  document.getElementById("cafe-logo");
-
-const mobileCafeName =
-  document.getElementById("cafe-name");
-
-const mobileCafeTitle =
-  mobileCafeName?.querySelector("h1");
-
-
-function fitMobileCafeBrand() {
-  if (
-    !mobileCafeHeader ||
-    !mobileCafeBrand ||
-    !mobileCafeLogo ||
-    !mobileCafeName ||
-    !mobileCafeTitle
-  ) {
-    return;
-  }
-
-  const root = document.documentElement;
-  const rootStyles = getComputedStyle(root);
-
-  const baseHeaderHeight =
-    parseFloat(
-      rootStyles.getPropertyValue(
-        "--mobile-header-base-height"
-      )
-    ) || 62;
-
-  if (!isMobileLayout()) {
-    mobileCafeHeader.classList.remove(
-      "mobile-brand-wrapped"
-    );
-
-    mobileCafeName.style.fontSize = "";
-    mobileCafeLogo.style.fontSize = "";
-
-    root.style.removeProperty("--mobile-header-height");
-    return;
-  }
-
-  root.style.setProperty(
-    "--mobile-header-height",
-    `${baseHeaderHeight}px`
-  );
-
-  mobileCafeHeader.classList.remove(
-    "mobile-brand-wrapped"
-  );
-
-  mobileCafeName.style.fontSize = "";
-  mobileCafeLogo.style.fontSize = "";
-
-  let nameSize =
-    parseFloat(getComputedStyle(mobileCafeName).fontSize) || 18;
-
-  let logoSize =
-    parseFloat(getComputedStyle(mobileCafeLogo).fontSize) || 22;
-
-  const minNameSize = 12;
-  const minLogoSize = 15;
-
-  let fits = false;
-
-  while (nameSize >= minNameSize) {
-    mobileCafeName.style.fontSize = `${nameSize}px`;
-    mobileCafeLogo.style.fontSize = `${logoSize}px`;
-
-    if (
-      mobileCafeTitle.scrollWidth <=
-      mobileCafeTitle.clientWidth + 1
-    ) {
-      fits = true;
-      break;
+@media (max-width: 600px) {
+    .order-modal {
+        padding: 12px;
     }
 
-    if (nameSize === minNameSize) {
-      break;
+    .order-modal-content {
+        max-width: 100%;
+        padding: 19px;
+        max-height: 88vh;
+        max-height: 88dvh;
     }
 
-    nameSize = Math.max(
-      minNameSize,
-      nameSize - 0.5
-    );
-
-    logoSize = Math.max(
-      minLogoSize,
-      logoSize - 0.35
-    );
-  }
-
-  mobileCafeName.style.fontSize =
-    `${Math.max(nameSize, minNameSize)}px`;
-
-  mobileCafeLogo.style.fontSize =
-    `${Math.max(logoSize, minLogoSize)}px`;
-
-  if (!fits) {
-    mobileCafeHeader.classList.add(
-      "mobile-brand-wrapped"
-    );
-  }
-
-  // Match drawer top position to actual header height.
-  root.style.setProperty(
-    "--mobile-header-height",
-    `${Math.ceil(
-      mobileCafeHeader.getBoundingClientRect().height
-    )}px`
-  );
+    .order-modal-header h2 {
+        font-size: 19px;
+    }
 }
-
-
-window.addEventListener("resize", () => {
-  fitMobileCafeBrand();
-
-  if (!isMobileLayout()) {
-    closeMobilePanels();
-  }
-});
-
-
-window.addEventListener(
-  "orientationchange",
-  fitMobileCafeBrand
-);
-
-window.addEventListener(
-  "load",
-  fitMobileCafeBrand
-);
-
-fitMobileCafeBrand();
