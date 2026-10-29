@@ -418,7 +418,7 @@ async function loadMenu() {
       createElement(
         "p",
         "menu-message",
-        "Menu load nahi hua. Internet aur published Google Sheet URL check karo."
+        "Unable to load Menu, Pls Check Your Internet Connection."
       )
     );
   }
