@@ -507,6 +507,42 @@ footer {
     font-weight: 500;
 
 }
+.menu-item-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.food-symbol {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 2px solid;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+}
+
+.food-symbol::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.food-symbol.veg {
+  color: #16a34a;
+  border-color: #16a34a;
+}
+
+.food-symbol.non-veg {
+  color: #dc2626;
+  border-color: #dc2626;
+}
 
 /* Price left, Add button right */
 
