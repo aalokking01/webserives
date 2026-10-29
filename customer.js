@@ -377,6 +377,7 @@ async function loadMenu() {
             item.category || "Other"
           ).trim(),
           name: String(item.name || "").trim(),
+          foodtype: String(item.foodtype || '').trim(),
           price,
 
           availability:
@@ -520,11 +521,26 @@ if (isOutOfStock) {
   card.classList.add('out-of-stock');
 }
 
-    const name = createElement(
-      "h3",
-      "menu-item-name",
-      item.name
-    );
+    const name = createElement("h3", "menu-item-name");
+
+const foodType = String(item.foodtype || '').trim().toLowerCase();
+
+const foodIcon = createElement(
+  "span",
+  "food-symbol " + (foodType === "non-veg" ? "non-veg" : "veg")
+);
+
+foodIcon.setAttribute(
+  "aria-label",
+  foodType === "non-veg" ? "Non-Veg" : "Veg"
+);
+
+foodIcon.title = foodType === "non-veg" ? "Non-Veg" : "Veg";
+
+name.append(
+  foodIcon,
+  document.createTextNode(item.name)
+);
 
     const bottom = createElement(
       "div",
