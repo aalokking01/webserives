@@ -1176,12 +1176,21 @@ customerOrderForm?.addEventListener(
     }
 
     const customerName = customerNameInput.value.trim();
-    const customerPhone = customerPhoneInput.value.trim();
+    let customerPhone = customerPhoneInput.value.trim();
     const customerAddress = customerAddressInput.value.trim();
-    if (!/^[6-9]\d{9}$/.test(customerPhone)) {
-    alert("Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.");
-    customerPhoneInput.focus();
-    return;
+   // Remove spaces, hyphens, + signs and other non-digit characters
+customerPhone = customerPhone.replace(/\D/g, "");
+
+// Remove India's country code if the number has 12 digits
+if (customerPhone.length === 12 && customerPhone.startsWith("91")) {
+  customerPhone = customerPhone.slice(2);
+}
+
+// Validate the final 10-digit Indian mobile number
+if (!/^[6-9]\d{9}$/.test(customerPhone)) {
+  alert("Please enter a valid 10-digit Indian mobile number.");
+  customerPhoneInput.focus();
+  return;
 }
 
     const orderNotes = String(
@@ -1324,16 +1333,12 @@ customerOrderForm?.addEventListener(
       );
 
       lines.push(
-        "GST (" +
-        formatPrice(result.gstPercent) +
-        "%): ₹" +
-        formatPrice(result.gstAmount)
-      );
+  "GST, if applicable."
+);
 
-      lines.push(
-        "Total: ₹" + formatPrice(result.total)
-      );
-
+lines.push(
+  "Total: ₹" + formatPrice(result.total)
+);
       lines.push("");
       lines.push("Please confirm my order.");
 
