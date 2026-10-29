@@ -478,8 +478,28 @@ function renderCategories() {
 
     list.appendChild(button);
   });
+  const allItemsButton = document.getElementById("mobileAllItemsBtn");
+
+if (allItemsButton) {
+    const isAllSelected = selectedCategory === "All";
+
+    allItemsButton.classList.toggle("active", isAllSelected);
+    allItemsButton.setAttribute(
+        "aria-pressed",
+        String(isAllSelected)
+    );
+}
 }
 
+const mobileAllItemsButton =
+    document.getElementById("mobileAllItemsBtn");
+
+mobileAllItemsButton?.addEventListener("click", () => {
+    selectedCategory = "All";
+
+    renderCategories();
+    renderMenu();
+});
 
 // =========================================================
 // RENDER MENU CARDS
@@ -493,17 +513,27 @@ function renderMenu() {
     .trim()
     .toLowerCase();
 
-  const filtered = menuItems.filter(item => {
+  const vegOnly = document.getElementById("vegOnlyToggle")?.checked || false;
+
+const filtered = menuItems.filter(item => {
     const matchesCategory =
-      selectedCategory === "All" ||
-      item.category === selectedCategory;
+        selectedCategory === "All" ||
+        item.category === selectedCategory;
 
     const matchesSearch =
-      item.name.toLowerCase().includes(searchText) ||
-      item.category.toLowerCase().includes(searchText);
+        item.name.toLowerCase().includes(searchText) ||
+        item.category.toLowerCase().includes(searchText);
 
-    return matchesCategory && matchesSearch;
-  });
+    const foodType = String(item.foodtype || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]/g, "");
+
+    const matchesFoodType =
+        !vegOnly || foodType === "veg";
+
+    return matchesCategory && matchesSearch && matchesFoodType;
+});
 
   if (filtered.length === 0) {
     list.appendChild(
@@ -520,6 +550,7 @@ function renderMenu() {
 if (isOutOfStock) {
   card.classList.add('out-of-stock');
 }
+
 
     const name = createElement("h3", "menu-item-name");
 
@@ -577,7 +608,11 @@ name.append(
   });
 }
 
+const vegOnlyToggle = document.getElementById("vegOnlyToggle");
 
+vegOnlyToggle?.addEventListener("change", () => {
+    renderMenu();
+});
 // =========================================================
 // CART FUNCTIONS
 // =========================================================
